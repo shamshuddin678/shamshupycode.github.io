@@ -1,17 +1,529 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Shamshu PyCode</title>
-    <style>
-        body {
-            background-color: lightgreen;
-            text-align: center;
-            font-family: Arial;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Night City Highway</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-color: #0a0a0a;
+    --neon-yellow: #FFD700;
+    --neon-cyan: #00FFFF;
+    --neon-orange: #FF6B00;
+    --neon-red: #FF0055;
+    --neon-green: #00FF55;
+    --road-width: 300px;
+  }
+  
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body, html {
+    width: 100%; min-height: 100vh;
+    background-color: var(--bg-color);
+    font-family: 'Rajdhani', sans-serif;
+    color: white;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
+  body.locked { overflow-y: hidden; }
+
+  /* Night City Background / Particles */
+  .skyline {
+    position: fixed; top: 0; left: 0; width: 100%; height: 20vh;
+    background: linear-gradient(to bottom, #050510, var(--bg-color));
+    z-index: 0;
+  }
+  
+  canvas#rain {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 10; opacity: 0.6;
+  }
+
+  /* Highway Elements */
+  .highway-container {
+    position: relative; width: 100%; text-align: center;
+    display: flex; flex-direction: column; align-items: center;
+    z-index: 5;
+  }
+
+  .road {
+    position: fixed; top: 0; bottom: 0; width: var(--road-width);
+    background: #111;
+    border-left: 5px solid rgba(255,255,255,0.2);
+    border-right: 5px solid rgba(255,255,255,0.2);
+    box-shadow: 0 0 50px rgba(0,0,0,0.8) inset;
+    z-index: 1;
+  }
+
+  .road-lines {
+    position: absolute; top: 0; left: 50%; width: 10px; height: 100%;
+    transform: translateX(-50%);
+    background: repeating-linear-gradient(to bottom, 
+      var(--neon-yellow) 0%, var(--neon-yellow) 50px, 
+      transparent 50px, transparent 100px);
+    background-size: 10px 100px;
+    animation: moveLines 1s linear infinite;
+    filter: drop-shadow(0 0 10px var(--neon-yellow));
+  }
+
+  body.locked .road-lines { animation-play-state: paused; }
+
+  @keyframes moveLines {
+    from { background-position: 0 0; }
+    to { background-position: 0 100px; }
+  }
+
+  /* Streetlights */
+  .streetlights {
+    position: fixed; top: 0; bottom: 0; width: calc(var(--road-width) + 120px);
+    pointer-events: none; z-index: 1; display: flex; justify-content: space-between;
+  }
+  .light-pole {
+    width: 10px; height: 100%; display: flex; flex-direction: column; gap: 40vh; margin-top: -20vh;
+    animation: movePoles 4s linear infinite;
+  }
+  body.locked .light-pole { animation-play-state: paused; }
+
+  @keyframes movePoles {
+    from { transform: translateY(-40vh); }
+    to { transform: translateY(0); }
+  }
+  
+  .light-bulb {
+    width: 20px; height: 100px; background: rgba(255,255,255,0.8);
+    border-radius: 10px; margin-left:-5px;
+    box-shadow: 0 0 40px 20px rgba(255, 107, 0, 0.4);
+  }
+
+  /* The Car */
+  .car {
+    position: fixed; bottom: 10vh; left: 50%;
+    transform: translateX(-50%);
+    width: 60px; height: 120px;
+    background: linear-gradient(to bottom, #222, #000);
+    border-radius: 20px 20px 10px 10px;
+    z-index: 20;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.8), 0 0 15px rgba(0,255,255,0.3) inset;
+    transition: transform 0.1s ease-out;
+  }
+  .car-roof {
+    position: absolute; top: 30%; left: 10%; width: 80%; height: 40%;
+    background: #111; border-radius: 10px;
+    border: 1px solid #333;
+  }
+  .car-tail-lights {
+    position: absolute; bottom: 5px; left: 10%; width: 80%; height: 5px; display: flex; justify-content: space-between;
+  }
+  .car-tail-light {
+    width: 15px; height: 5px; background: red;
+    box-shadow: 0 0 15px 5px rgba(255,0,0,0.8); border-radius: 5px;
+  }
+  .car-headlights {
+    position: absolute; top: -150px; left: -50px; width: 160px; height: 150px;
+    background: linear-gradient(to bottom, rgba(0,255,255,0.4), transparent);
+    clip-path: polygon(35% 0, 65% 0, 100% 100%, 0% 100%);
+    pointer-events: none;
+  }
+
+  /* Sections Content Wrapper */
+  .content-wrapper { position: relative; z-index: 30; width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .section { width: 100%; max-width: 1000px; min-height: 100vh; position: relative; padding: 100px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transform: translateY(50px); transition: all 1s ease; }
+  .section.visible { opacity: 1; transform: translateY(0); }
+
+  /* Neon Text Utilities */
+  .neon-text {
+    font-family: 'Orbitron', sans-serif; text-align: center; margin-bottom: 30px;
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor;
+  }
+  .c-cyan { color: var(--neon-cyan); }
+  .c-orange { color: var(--neon-orange); }
+  .c-yellow { color: var(--neon-yellow); }
+  .c-red { color: var(--neon-red); }
+  .c-green { color: var(--neon-green); }
+
+  /* Login Gate */
+  .toll-booth {
+    background: rgba(10,10,10,0.9); border: 2px solid var(--neon-cyan);
+    padding: 40px; border-radius: 10px; box-shadow: 0 0 30px rgba(0,255,255,0.2);
+    text-align: center; backdrop-filter: blur(5px);
+  }
+  .toll-input {
+    width: 100%; padding: 15px; margin: 10px 0;
+    background: rgba(0,0,0,0.5); border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan); font-family: 'Rajdhani', sans-serif; font-size: 1.2rem;
+    outline: none;
+  }
+  .toll-input:focus { box-shadow: 0 0 15px var(--neon-cyan); }
+  .toll-btn {
+    width: 100%; padding: 15px; margin-top: 20px;
+    background: transparent; border: 2px solid var(--neon-orange);
+    color: var(--neon-orange); font-family: 'Orbitron', sans-serif; font-size: 1.2rem;
+    cursor: pointer; transition: 0.3s;
+    text-shadow: 0 0 5px var(--neon-orange);
+    box-shadow: 0 0 10px rgba(255,107,0,0.4) inset, 0 0 10px rgba(255,107,0,0.4);
+  }
+  .toll-btn:hover { background: var(--neon-orange); color: #000; }
+  #gate-bar {
+    width: var(--road-width); height: 20px; background: repeating-linear-gradient(45deg, #000, #000 10px, var(--neon-yellow) 10px, var(--neon-yellow) 20px);
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 40;
+    box-shadow: 0 0 20px var(--neon-yellow); transition: 2s ease;
+  }
+  body:not(.locked) #gate-bar {
+    transform: translate(100%, -50%) rotate(-90deg); opacity: 0; pointer-events: none;
+  }
+  #error-msg { margin-top: 15px; font-weight: bold; height: 20px; }
+
+  /* Bio District */
+  .bio-cards { display: flex; flex-direction: column; gap: 20px; width: 100%; position: relative; }
+  .bio-timeline { position: absolute; left: 20px; top: 0; bottom: 0; width: 5px; background: var(--neon-cyan); box-shadow: 0 0 10px var(--neon-cyan); }
+  .bio-card {
+    background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.2);
+    padding: 20px; border-left: 5px solid var(--neon-cyan);
+    margin-left: 50px; border-radius: 5px;
+    transform: translateX(100px); opacity: 0; transition: all 0.6s ease;
+  }
+  .bio-card.visible { transform: translateX(0); opacity: 1; }
+  .bio-card strong { color: var(--neon-cyan); display: inline-block; width: 120px; }
+
+  /* Skills Garage */
+  .garage-bg {
+    position: absolute; top:0; left:0; right:0; bottom:0;
+    background: repeating-linear-gradient(to bottom, #1a1a1a 0, #1a1a1a 10px, #111 10px, #111 12px);
+    z-index: -1; opacity: 0.8;
+  }
+  .skills-container { width: 100%; display: flex; flex-direction: column; gap: 25px; background: rgba(0,0,0,0.8); padding: 40px; border-radius: 10px; border: 2px solid #333; }
+  .skill { display: flex; align-items: center; gap: 20px; }
+  .skill-icon { font-size: 2rem; width: 50px; text-align: center; text-shadow: 0 0 15px currentColor; }
+  .skill-bar-bg { flex-grow: 1; height: 20px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #444; }
+  .skill-bar-fill { height: 100%; width: 0; border-radius: 10px; transition: width 1.5s ease-out; position: relative; }
+  .skill-bar-fill::after {
+    content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 20px;
+    background: rgba(255,255,255,0.8); box-shadow: 0 0 10px white;
+  }
+
+  /* GitHub Terminal */
+  .terminal {
+    background: rgba(0, 5, 10, 0.9); border: 2px solid #333; border-radius: 10px;
+    width: 100%; padding: 0; overflow: hidden; box-shadow: 0 0 30px rgba(0,0,0,1);
+  }
+  .terminal-header { background: #222; padding: 10px; display: flex; gap: 8px; }
+  .term-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .term-dot:nth-child(1) { background: #ff5f56; }
+  .term-dot:nth-child(2) { background: #ffbd2e; }
+  .term-dot:nth-child(3) { background: #27c93f; }
+  .terminal-body { padding: 30px; font-family: monospace; font-size: 1.2rem; min-height: 200px; color: #0f0; text-shadow: 0 0 5px #0f0; }
+  .typewriter { display: inline-block; border-right: 2px solid #0f0; padding-right: 5px; animation: blink 0.8s infinite; }
+  @keyframes blink { 50% { border-color: transparent; } }
+
+  .github-btn {
+    display: inline-block; margin-top: 40px; padding: 20px 40px;
+    background: transparent; color: var(--neon-cyan);
+    font-size: 1.5rem; font-family: 'Orbitron', sans-serif; text-decoration: none;
+    border: 2px solid var(--neon-cyan); border-radius: 50px;
+    text-shadow: 0 0 10px var(--neon-cyan); box-shadow: 0 0 20px rgba(0,255,255,0.3) inset, 0 0 20px rgba(0,255,255,0.3);
+    transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .github-btn:hover {
+    background: var(--neon-cyan); color: #000; box-shadow: 0 0 40px var(--neon-cyan);
+  }
+
+  /* Audio Toggle */
+  .audio-btn {
+    position: fixed; top: 20px; right: 20px; z-index: 100;
+    background: rgba(0,0,0,0.6); border: 1px solid var(--neon-yellow); color: var(--neon-yellow);
+    padding: 10px 15px; border-radius: 50px; cursor: pointer; font-family: 'Orbitron', sans-serif;
+    outline: none; transition: 0.3s;
+  }
+  .audio-btn:hover { background: var(--neon-yellow); color: #000; }
+
+  @media(max-width: 768px) {
+    :root { --road-width: 180px; }
+    .bio-card strong { display: block; width: 100%; margin-bottom: 5px; }
+  }
+</style>
 </head>
-<body>
-    <h1>Hello, I'm Shamshuddin 👋</h1>
-    <p>Python Developer | Student</p>
+<body class="locked">
+
+  <button class="audio-btn" id="audio-btn">🔊 Sound: OFF</button>
+  <div class="skyline"></div>
+  <canvas id="rain"></canvas>
+
+  <div class="road">
+    <div class="road-lines"></div>
+  </div>
+
+  <div class="streetlights">
+    <div class="light-pole"><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div></div>
+    <div class="light-pole"><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div></div>
+  </div>
+
+  <div id="gate-bar"></div>
+
+  <div class="car" id="driver-car">
+    <div class="car-headlights"></div>
+    <div class="car-roof"></div>
+    <div class="car-tail-lights">
+      <div class="car-tail-light"></div>
+      <div class="car-tail-light"></div>
+    </div>
+  </div>
+
+  <div class="content-wrapper">
+    <!-- Section 1: LOGIN GATE -->
+    <section class="section visible" id="login-gate">
+      <h1 class="neon-text c-orange">🔐 ENTER THE CITY</h1>
+      <div class="toll-booth">
+        <input type="email" id="email" class="toll-input" placeholder="ACCESS EMAIL" value="shamshuddinshaik376@gmail.com">
+        <input type="password" id="password" class="toll-input" placeholder="PASSWORD">
+        <button class="toll-btn" onclick="checkLogin()">INITIATE ACCESS</button>
+        <div id="error-msg" class="c-red neon-text" style="font-family: Orbitron; margin-bottom: 0;"></div>
+      </div>
+    </section>
+
+    <!-- Section 2: BIO DATA -->
+    <section class="section" id="bio-district">
+      <h1 class="neon-text c-cyan">👤 IDENTITY DISTRICT</h1>
+      <div class="bio-cards" id="bio-cards-container">
+        <div class="bio-timeline"></div>
+        <div class="bio-card" style="transition-delay: 0.1s">
+          <strong>Name:</strong> Shamshuddin Shaik
+        </div>
+        <div class="bio-card" style="transition-delay: 0.2s">
+          <strong>Date of Birth:</strong> 17th October 2005
+        </div>
+        <div class="bio-card" style="transition-delay: 0.3s">
+          <strong>10th:</strong> Apple EM High School, Perecherla
+        </div>
+        <div class="bio-card" style="transition-delay: 0.4s">
+          <strong>Intermediate:</strong> Sri Chaitanya Junior College, Narsaraopet
+        </div>
+        <div class="bio-card" style="transition-delay: 0.5s">
+          <strong>B.Tech:</strong> KKR & KSR Institution of Technology and Sciences
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: SKILLS GARAGE -->
+    <section class="section" id="skills-garage">
+      <div class="garage-bg"></div>
+      <h1 class="neon-text c-yellow">⚙️ SKILLS GARAGE</h1>
+      <div class="skills-container">
+        <div class="skill">
+          <div class="skill-icon c-cyan">🔷</div>
+          <div class="skill-bar-bg"><div class="skill-bar-fill" data-width="85%" style="background: var(--neon-cyan); box-shadow: 0 0 10px var(--neon-cyan);"></div></div>
+          <span style="width: 15rem; font-family: 'Orbitron';">Data Structures</span>
+        </div>
+        <div class="skill">
+          <div class="skill-icon c-orange">☕</div>
+          <div class="skill-bar-bg"><div class="skill-bar-fill" data-width="90%" style="background: var(--neon-orange); box-shadow: 0 0 10px var(--neon-orange);"></div></div>
+          <span style="width: 15rem; font-family: 'Orbitron';">Java</span>
+        </div>
+        <div class="skill">
+          <div class="skill-icon c-yellow">🐍</div>
+          <div class="skill-bar-bg"><div class="skill-bar-fill" data-width="80%" style="background: var(--neon-yellow); box-shadow: 0 0 10px var(--neon-yellow);"></div></div>
+          <span style="width: 15rem; font-family: 'Orbitron';">Python</span>
+        </div>
+        <div class="skill">
+          <div class="skill-icon c-red">🌐</div>
+          <div class="skill-bar-bg"><div class="skill-bar-fill" data-width="95%" style="background: var(--neon-red); box-shadow: 0 0 10px var(--neon-red);"></div></div>
+          <span style="width: 15rem; font-family: 'Orbitron';">HTML</span>
+        </div>
+        <div class="skill">
+          <div class="skill-icon c-cyan">🎨</div>
+          <div class="skill-bar-bg"><div class="skill-bar-fill" data-width="90%" style="background: var(--neon-cyan); box-shadow: 0 0 10px var(--neon-cyan);"></div></div>
+          <span style="width: 15rem; font-family: 'Orbitron';">CSS</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: GITHUB TERMINAL -->
+    <section class="section" id="github-terminal">
+      <h1 class="neon-text c-green">💻 CODE TERMINAL</h1>
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="term-dot"></div><div class="term-dot"></div><div class="term-dot"></div>
+        </div>
+        <div class="terminal-body" id="term-text">
+          guest@nightcity:~$ <span class="typewriter" id="typewriter"></span>
+        </div>
+      </div>
+      <a href="https://github.com/shamshuddin678" target="_blank" class="github-btn">VIEW MY GITHUB →</a>
+    </section>
+  </div>
+
+  <audio id="engine-sound" loop>
+    <!-- Placeholder sound for engine hum -->
+    <source src="data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq" type="audio/mpeg">
+  </audio>
+
+  <script>
+    // Audio synthesis for a low drone (engine sound)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let oscillator = null;
+    let gainNode = null;
+    let soundEnabled = false;
+
+    function initAudio() {
+        if(!oscillator) {
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.value = 40; // Low frequency for engine rumble
+            gainNode.gain.value = 0.05; // Low volume
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+        }
+    }
+
+    document.getElementById('audio-btn').addEventListener('click', () => {
+        soundEnabled = !soundEnabled;
+        document.getElementById('audio-btn').innerText = soundEnabled ? '🔊 Sound: ON' : '🔊 Sound: OFF';
+        if(soundEnabled) {
+            audioCtx.resume();
+            if(!oscillator) initAudio();
+            gainNode.gain.setTargetAtTime(0.05, audioCtx.currentTime, 0.5);
+        } else {
+            if(gainNode) gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+        }
+    });
+
+    // Rain Particles
+    const canvas = document.getElementById('rain');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    let particles = [];
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.vy = Math.random() * 5 + 5;
+        this.vx = (Math.random() - 0.5) * 1;
+        this.size = Math.random() * 2;
+      }
+      update() {
+        this.y += this.vy;
+        this.x += this.vx;
+        if(this.y > height) { this.y = 0; this.x = Math.random() * width; }
+      }
+      draw() {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    for(let i=0; i<100; i++) particles.push(new Particle());
+    
+    function animateParticles() {
+      ctx.clearRect(0,0,width,height);
+      particles.forEach(p => { p.update(); p.draw(); });
+      requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+
+    // Login logic
+    function checkLogin() {
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      const err = document.getElementById('error-msg');
+      
+      // Simply check the password, so any email typo won't block access
+      if(pass.trim().toLowerCase() === 'shamshu2005') {
+        err.style.color = 'var(--neon-green)';
+        err.innerText = "ACCESS GRANTED";
+        err.classList.replace('c-red', 'c-green');
+        
+        setTimeout(() => {
+          document.body.classList.remove('locked');
+          document.body.style.overflow = "auto";
+          document.documentElement.style.overflow = "auto";
+          document.getElementById('login-gate').style.opacity = '0.3';
+          
+          // Delaying slightly so the browser unlocks scrolling before moving down
+          setTimeout(() => {
+            document.getElementById('bio-district').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }, 1000);
+      } else {
+        err.innerText = "ACCESS DENIED";
+        err.style.animation = 'blink 0.5s infinite';
+        setTimeout(() => { err.style.animation = ''; }, 2000);
+      }
+    }
+
+    // Scroll Animations & Observers
+    const sections = document.querySelectorAll('.section');
+    const bioCards = document.querySelectorAll('.bio-card');
+    const skillBars = document.querySelectorAll('.skill-bar-fill');
+    
+    let terminalTyped = false;
+    const typeText = "git clone https://github.com/shamshuddin678/portfolio.git\n> Connecting to night-city network...\n> Accessing identity files...\n> System online. Welcome, Shamshuddin.";
+    let i = 0;
+    
+    function typeWriter() {
+      if (i < typeText.length) {
+        let char = typeText.charAt(i);
+        if(char === '\n') char = '<br>';
+        document.getElementById('typewriter').innerHTML += char;
+        i++;
+        setTimeout(typeWriter, 50);
+      }
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          
+          if(entry.target.id === 'bio-district') {
+            bioCards.forEach(card => card.classList.add('visible'));
+          }
+          if(entry.target.id === 'skills-garage') {
+            skillBars.forEach(bar => {
+              bar.style.width = bar.getAttribute('data-width');
+            });
+          }
+          if(entry.target.id === 'github-terminal' && !terminalTyped) {
+            terminalTyped = true;
+            typeWriter();
+          }
+        }
+      });
+    }, { threshold: 0.3 });
+
+    sections.forEach(sec => observer.observe(sec));
+
+    // Car Sway on scroll
+    let lastScrollY = window.scrollY;
+    const car = document.getElementById('driver-car');
+    window.addEventListener('scroll', () => {
+      // Small math to make car sway left/right
+      const deltaY = window.scrollY - lastScrollY;
+      lastScrollY = window.scrollY;
+      
+      // change frequency by engine sound oscillator
+      if(soundEnabled && oscillator) {
+          oscillator.frequency.value = 40 + Math.min(window.scrollY / 50, 100);
+      }
+
+      // sway effect
+      const sway = Math.sin(window.scrollY * 0.01) * 20;
+      car.style.transform = `translateX(calc(-50% + ${sway}px)) scale(0.95)`;
+      
+      clearTimeout(window.carTimeout);
+      window.carTimeout = setTimeout(() => {
+        car.style.transform = `translateX(-50%) scale(1)`;
+      }, 150);
+    });
+  </script>
 </body>
 </html>
