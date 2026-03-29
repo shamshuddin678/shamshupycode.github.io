@@ -285,23 +285,8 @@
     <!-- Section 2: BIO DATA -->
     <section class="section" id="bio-district">
       <h1 class="neon-text c-cyan">👤 IDENTITY DISTRICT</h1>
-      <div class="bio-cards" id="bio-cards-container">
-        <div class="bio-timeline"></div>
-        <div class="bio-card" style="transition-delay: 0.1s">
-          <strong>Name:</strong> Shamshuddin Shaik
-        </div>
-        <div class="bio-card" style="transition-delay: 0.2s">
-          <strong>Date of Birth:</strong> 17th October 2005
-        </div>
-        <div class="bio-card" style="transition-delay: 0.3s">
-          <strong>10th:</strong> Apple EM High School, Perecherla
-        </div>
-        <div class="bio-card" style="transition-delay: 0.4s">
-          <strong>Intermediate:</strong> Sri Chaitanya Junior College, Narsaraopet
-        </div>
-        <div class="bio-card" style="transition-delay: 0.5s">
-          <strong>B.Tech:</strong> KKR & KSR Institution of Technology and Sciences
-        </div>
+      <div id="bio-typing-container" style="font-size: 2.5rem; text-align: center; min-height: 100px; display: flex; align-items: center; justify-content: center; width: 100%; text-transform: uppercase;">
+        <span id="bio-typewriter" class="c-cyan neon-text" style="margin: 0; font-family: 'Orbitron', sans-serif;"></span><span class="typewriter" style="height: 3rem; display: inline-block; border-right: 4px solid var(--neon-cyan);"></span>
       </div>
     </section>
 
@@ -462,7 +447,33 @@
 
     // Scroll Animations & Observers
     const sections = document.querySelectorAll('.section');
-    const bioCards = document.querySelectorAll('.bio-card');
+    const bioText = "I am Shamshuddin, Python Developer";
+    let bioIdx = 0;
+    let bioDeleting = false;
+    let bioStarted = false;
+
+    function loopBioTyping() {
+      const bioEl = document.getElementById('bio-typewriter');
+      if(bioDeleting) {
+        bioEl.innerText = bioText.substring(0, bioIdx);
+        bioIdx--;
+        if(bioIdx < 0) {
+          bioDeleting = false;
+          setTimeout(loopBioTyping, 500);
+        } else {
+          setTimeout(loopBioTyping, 50);
+        }
+      } else {
+        bioEl.innerText = bioText.substring(0, bioIdx);
+        bioIdx++;
+        if(bioIdx > bioText.length) {
+          bioDeleting = true;
+          setTimeout(loopBioTyping, 2000);
+        } else {
+          setTimeout(loopBioTyping, 100);
+        }
+      }
+    }
     const skillBars = document.querySelectorAll('.skill-bar-fill');
     
     let terminalTyped = false;
@@ -484,8 +495,9 @@
         if(entry.isIntersecting) {
           entry.target.classList.add('visible');
           
-          if(entry.target.id === 'bio-district') {
-            bioCards.forEach(card => card.classList.add('visible'));
+          if(entry.target.id === 'bio-district' && !bioStarted) {
+            bioStarted = true;
+            loopBioTyping();
           }
           if(entry.target.id === 'skills-garage') {
             skillBars.forEach(bar => {
